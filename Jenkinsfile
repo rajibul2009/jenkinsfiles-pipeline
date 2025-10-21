@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         GIT_REPO_LINK = 'https://github.com/rajibul2009/full-stack-mern-app.git'
-        REPO_BRANCH = 'master'
+        REPO_BRANCH = 'development'
     }
 
     stages {
