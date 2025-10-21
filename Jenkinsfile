@@ -4,7 +4,6 @@ pipeline {
     environment {
         GIT_REPO_LINK = 'https://github.com/rajibul2009/full-stack-mern-app.git'
         REPO_BRANCH = 'master'
-        
     }
 
     stages {
@@ -17,30 +16,28 @@ pipeline {
                 """
             }
         }
+        
         stage("Repo Clone") {
-            steps{
+            steps {
                 echo "Project Cloning..."
-                git url: "${GIT_REPO_LINK}"
-                    branch: "${REPO_BRANCH}"
-            
-            sh "ls -lah"
+                git branch: "${env.REPO_BRANCH}", 
+                    url: "${env.GIT_REPO_LINK}"
+                sh "ls -lah"
             }
-            
         }
-
-        post {
+    }
+    
+    post {
         always {
             echo 'This will always run after all the stages'
             echo 'Cleaning up workspace...'
             cleanWs()
         }
         failure {
-            echo 'The build has failed.'
+            echo 'The build was successful.'
         }
         success {
             echo 'The build was successful.'
         }
     }
-}
-
 }
