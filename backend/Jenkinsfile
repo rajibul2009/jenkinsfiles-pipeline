@@ -16,7 +16,7 @@ pipeline {
 
                 dir("run_mern_stack_with_docker_compose") {
                     sh "ls -lah"
-                    dir("frontend"){
+                    dir("backend"){
                         sh "ls -lah"
                     }
                 }
@@ -26,28 +26,62 @@ pipeline {
 
         stage("Prepare docker-compose file") {
             steps {
-                echo " Preparing docker-compose.yaml..."
+                echo "Preparing docker-compose.yaml..."
                 dir("run_mern_stack_with_docker_compose") {
                     sh """
                     ls -lah
-                    rm docker-compose.yaml
+                    rm -f docker-compose.yaml
                     ls -lah
-                   """
+                    """
                     writeFile file: 'docker-compose.yaml', text: """
+version: '3.9'
+
 services:
-  # React Frontend Service
-  frontend:
+  # MySQL Database Service
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_container
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: crud_operations
+      MYSQL_USER: myuser
+      MYSQL_PASSWORD: mypassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - todo_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Node.js Backend Service
+  backend:
     build:
-      context: ./frontend
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: frontend-app
+    container_name: backend-api
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "3000:3000"
     environment:
-      - VITE_API_URL=http://192.168.224.130:3000/api 
+      - DB_HOST=mysql
+      - DB_USER=myuser
+      - DB_PASSWORD=mypassword
+      - DB_DATABASE=crud_operations
+    volumes:
+      - ./server:/usr/src/app
+    depends_on:
+      mysql:
+        condition: service_healthy
     networks:
-      - todo_network 
+      - todo_network
+
+volumes:
+  db_data:
 
 networks:
   todo_network:
@@ -60,34 +94,27 @@ networks:
 
         stage("Docker image build") {
             steps {
-                echo "Docker image - build the services"
+                echo "Building Docker images..."
                 dir("run_mern_stack_with_docker_compose") {
-                    sh """
-                        ls -lah
-                        docker compose build
-                    """
+                    sh "docker compose build"
                 }
             }
         }
+
         stage("Docker Compose down"){
             steps {
-                echo "Docker Compose - down the existing services"
+                echo "Stopping existing Docker services..."
                 dir("run_mern_stack_with_docker_compose") {
-                    sh """
-                        ls -lah
-                        docker compose down
-                    """
+                    sh "docker compose down"
                 }
             }
         }
+
         stage("Docker Compose up - detached mode"){
             steps {
-                echo "Docker Compose - up the services in detached mode"
+                echo "Starting Docker services in detached mode..."
                 dir("run_mern_stack_with_docker_compose") {
-                    sh """
-                        ls -lah
-                        docker compose up -d
-                    """
+                    sh "docker compose up -d"
                 }
             }
         }
@@ -95,11 +122,11 @@ networks:
 
     post {
         always {
-            echo ' Cleaning workspace...'
+            echo 'Cleaning workspace...'
             cleanWs()
         }
         failure {
-            echo ' Build failed.'
+            echo 'Build failed.'
         }
         success {
             echo 'Build successful!'
